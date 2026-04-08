@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html class="dark" lang="it">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>KINETIC_SORT_v1.2 | Sistema Alpha</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@300;500;700&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+tailwind.config = {
+  darkMode:"class",
+  theme:{extend:{
+    colors:{
+      "tertiary-fixed":"#72ff70","error-container":"#93000a","secondary-fixed-dim":"#ffba38",
+      "on-secondary-fixed":"#281900","tertiary":"#b5ffaa","on-primary-fixed":"#001f24",
+      "on-primary":"#00363d","on-surface-variant":"#bac9cc","on-primary-fixed-variant":"#004f58",
+      "on-error-container":"#ffdad6","secondary-fixed":"#ffdeac","surface-container-high":"#262a31",
+      "on-tertiary-fixed":"#002203","inverse-primary":"#006875","primary-fixed-dim":"#00daf3",
+      "primary-container":"#00e5ff","inverse-on-surface":"#2d3137","outline":"#849396",
+      "surface-variant":"#31353c","on-error":"#690005","tertiary-fixed-dim":"#00e639",
+      "secondary":"#ffd799","tertiary-container":"#00f13d","on-primary-container":"#00626e",
+      "surface-dim":"#10141a","primary-fixed":"#9cf0ff","on-tertiary-fixed-variant":"#00530e",
+      "on-tertiary-container":"#006814","on-secondary-container":"#6a4800",
+      "surface-container-lowest":"#0a0e14","on-secondary-fixed-variant":"#604100",
+      "secondary-container":"#feb300","surface-bright":"#353940","background":"#10141a",
+      "primary":"#c3f5ff","inverse-surface":"#dfe2eb","on-tertiary":"#003907",
+      "on-secondary":"#432c00","on-surface":"#dfe2eb","error":"#ffb4ab",
+      "surface-tint":"#00daf3","surface-container":"#1c2026","surface":"#10141a",
+      "surface-container-highest":"#31353c","on-background":"#dfe2eb",
+      "outline-variant":"#3b494c","surface-container-low":"#181c22"
+    },
+    fontFamily:{"headline":["Space Grotesk"],"body":["Inter"],"label":["Inter"]},
+    borderRadius:{"DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","full":"9999px"},
+  }},
+}
+</script>
+<style>
+.material-symbols-outlined{font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24}
+.bg-grid-subtle{background-image:radial-gradient(circle,#1c2026 1px,transparent 1px);background-size:32px 32px}
+#simCanvas{display:block;width:100%;height:100%}
+@keyframes alarmPulse{0%,100%{opacity:1}50%{opacity:0.3}}
+.alarm-pulse{animation:alarmPulse 0.8s infinite}
+@keyframes wsPulse{0%,100%{opacity:0.5}50%{opacity:1}}
+.ws-pulse{animation:wsPulse 1.5s infinite}
+</style>
+</head>
+<body class="bg-background text-on-background font-body overflow-hidden h-screen flex">
+
+<!-- ═══ SIDEBAR ═══════════════════════════════════════════════ -->
+<aside class="h-screen w-64 fixed left-0 top-0 bg-[#1c2026] flex flex-col py-6 z-50">
+  <div class="px-6 mb-8">
+    <h1 class="text-[#c3f5ff] font-['Space_Grotesk'] font-bold text-2xl tracking-tighter">SISTEMA_ALPHA</h1>
+    <p class="text-xs text-slate-400 mt-1 uppercase tracking-widest">Linea Smistamento 04 — Attiva</p>
+  </div>
+  <nav class="flex-1 space-y-1">
+    <div class="bg-[#262a31] text-[#c3f5ff] rounded-lg border-l-4 border-[#c3f5ff] ml-2 px-4 py-3 flex items-center gap-3 cursor-pointer">
+      <span class="material-symbols-outlined">analytics</span>
+      <span class="font-['Inter'] text-sm font-medium">Diagnostica</span>
+    </div>
+    <div class="text-slate-400 hover:text-slate-200 px-4 py-3 flex items-center gap-3 transition-all hover:bg-[#262a31] hover:translate-x-1 cursor-pointer ml-2">
+      <span class="material-symbols-outlined" id="sidebar-alarm-icon">warning</span>
+      <span class="font-['Inter'] text-sm font-medium">Allarmi</span>
+      <span id="sidebar-alarm-badge" class="hidden ml-auto bg-error-container text-on-error-container text-[0.5rem] font-bold px-2 py-0.5 rounded-full uppercase">!</span>
+    </div>
+    <div class="text-slate-400 hover:text-slate-200 px-4 py-3 flex items-center gap-3 transition-all hover:bg-[#262a31] hover:translate-x-1 cursor-pointer ml-2">
+      <span class="material-symbols-outlined">receipt_long</span>
+      <span class="font-['Inter'] text-sm font-medium">Registro</span>
+    </div>
+    <div class="text-slate-400 hover:text-slate-200 px-4 py-3 flex items-center gap-3 transition-all hover:bg-[#262a31] hover:translate-x-1 cursor-pointer ml-2">
+      <span class="material-symbols-outlined">settings</span>
+      <span class="font-['Inter'] text-sm font-medium">Impostazioni</span>
+    </div>
+  </nav>
+
+  <!-- Proprietà oggetto corrente -->
+  <div class="mx-4 mb-4 p-3 rounded-lg bg-surface-container border border-outline-variant/20">
+    <div class="text-[0.55rem] text-on-surface-variant uppercase tracking-widest font-bold mb-2">Oggetto corrente</div>
+    <div class="space-y-1">
+      <div class="flex justify-between text-xs">
+        <span class="text-on-surface-variant">Tipo</span>
+        <span class="font-mono text-primary" id="prop-tipo">—</span>
+      </div>
+      <div class="flex justify-between text-xs">
+        <span class="text-on-surface-variant">Peso</span>
+        <span class="font-mono text-secondary" id="prop-peso">—</span>
+      </div>
+      <div class="flex justify-between text-xs">
+        <span class="text-on-surface-variant">Induttanza</span>
+        <span class="font-mono text-secondary" id="prop-ind">—</span>
+      </div>
+      <div class="flex justify-between text-xs">
+        <span class="text-on-surface-variant">Capacitività</span>
+        <span class="font-mono text-secondary" id="prop-cap">—</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="px-4 space-y-3">
+    <button onclick="sendCmd('alarm',{msg:'EMERGENZA OPERATORE'})"
+      class="w-full py-3 bg-error-container text-on-error-container font-bold rounded-lg hover:brightness-110 active:scale-95 duration-200 uppercase tracking-tighter text-sm">
+      ARRESTO DI EMERGENZA
+    </button>
+    <div class="pt-3 border-t border-outline-variant/20 space-y-1">
+      <div class="text-slate-400 hover:text-slate-200 px-4 py-2 flex items-center gap-3 cursor-pointer text-sm">
+        <span class="material-symbols-outlined">help</span><span>Supporto</span>
+      </div>
+      <div class="text-slate-400 hover:text-slate-200 px-4 py-2 flex items-center gap-3 cursor-pointer text-sm">
+        <span class="material-symbols-outlined">logout</span><span>Esci</span>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<!-- ═══ MAIN ══════════════════════════════════════════════════ -->
+<main class="flex-1 ml-64 flex flex-col relative overflow-hidden">
+
+  <!-- HEADER -->
+  <header class="bg-[#10141a] shadow-[0_4px_20px_rgba(0,229,255,0.06)] flex justify-between items-center w-full px-6 h-16 z-40 flex-shrink-0">
+    <div class="flex items-center gap-8">
+      <div class="text-xl font-bold tracking-tighter text-[#c3f5ff] uppercase font-['Space_Grotesk']">KINETIC_SORT_v1.2</div>
+      <nav class="hidden md:flex gap-6 items-center">
+        <a class="text-[#c3f5ff] border-b-2 border-[#c3f5ff] pb-1 font-['Space_Grotesk'] tracking-tight text-sm" href="#">Vista Live</a>
+        <a class="text-slate-500 hover:text-slate-300 transition-colors font-['Space_Grotesk'] tracking-tight text-sm" href="#">Analisi</a>
+        <a class="text-slate-500 hover:text-slate-300 transition-colors font-['Space_Grotesk'] tracking-tight text-sm" href="#">Manutenzione</a>
+        <a class="text-slate-500 hover:text-slate-300 transition-colors font-['Space_Grotesk'] tracking-tight text-sm" href="#">Mappa Sistema</a>
+      </nav>
+    </div>
+    <div class="flex items-center gap-3">
+      <!-- WS status -->
+      <div id="ws-chip" class="flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-outline-variant/30 bg-surface-container text-[0.6rem] font-mono text-on-surface-variant">
+        <span class="w-1.5 h-1.5 rounded-full bg-slate-600 ws-pulse inline-block" id="ws-dot"></span>
+        <span id="ws-label">DISCONNESSO</span>
+      </div>
+      <!-- Alarm -->
+      <div id="alarm-chip" class="flex items-center gap-2 px-3 py-1.5 rounded-full border border-outline-variant/30 bg-surface-container text-xs font-mono text-on-surface-variant transition-all duration-300">
+        <span class="w-2 h-2 rounded-full bg-tertiary inline-block" id="alarm-dot"></span>
+        <span id="alarm-label">NESSUN ALLARME</span>
+      </div>
+      <button id="btn-reset-alarm" onclick="sendCmd('reset_alarm')"
+        class="hidden text-xs font-mono px-3 py-1.5 rounded-full border border-error/50 text-error hover:bg-error-container transition-all">
+        ✕ Azzera Allarme
+      </button>
+      <button id="btn-stop" onclick="sendCmd('stop')"
+        class="px-4 py-2 rounded-lg border border-outline-variant/40 bg-surface-container text-on-surface-variant hover:border-error/50 hover:text-error text-sm font-['Space_Grotesk'] font-bold tracking-tight transition-all active:scale-95">
+        ■ STOP
+      </button>
+      <button id="btn-start" onclick="sendCmd('start')"
+        class="px-4 py-2 rounded-lg border border-primary/40 bg-surface-container text-primary hover:bg-primary/10 text-sm font-['Space_Grotesk'] font-bold tracking-tight transition-all active:scale-95">
+        ▶ AVVIA
+      </button>
+      <div class="h-8 w-8 rounded-full bg-surface-container-high border border-outline-variant flex items-center justify-center cursor-pointer">
+        <span class="material-symbols-outlined text-sm text-[#c3f5ff]">account_circle</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- CANVAS AREA -->
+  <section class="flex-1 p-6 bg-grid-subtle relative overflow-hidden flex flex-col gap-4" style="min-height:0">
+
+    <!-- Stats overlay -->
+    <div class="absolute top-6 left-6 z-10 flex gap-3">
+      <div class="bg-surface-container/80 backdrop-blur-md p-4 rounded-xl border border-outline-variant/20 shadow-xl w-44">
+        <div class="text-[0.6rem] text-on-surface-variant uppercase tracking-widest font-bold mb-1">Totale Smistati</div>
+        <div class="font-headline text-3xl font-bold text-primary" id="stat-total">0</div>
+        <div class="flex items-center gap-1 text-tertiary text-xs mt-1">
+          <span class="material-symbols-outlined text-xs">trending_up</span>
+          <span id="stat-eff">—</span>
+        </div>
+      </div>
+      <div class="bg-surface-container/80 backdrop-blur-md p-4 rounded-xl border border-outline-variant/20 shadow-xl w-44">
+        <div class="text-[0.6rem] text-on-surface-variant uppercase tracking-widest font-bold mb-1">Stato Ciclo</div>
+        <div class="font-headline text-2xl font-bold text-secondary" id="stat-state">FERMO</div>
+        <div class="w-full bg-surface-container-highest h-1 rounded-full mt-2 overflow-hidden">
+          <div class="h-full bg-secondary transition-all duration-500" id="stat-bar" style="width:0%"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Canvas principale -->
+    <div class="flex-1 relative rounded-2xl bg-surface-container-lowest/50 border border-outline-variant/10 overflow-hidden" style="min-height:0" id="canvasWrap">
+      <canvas id="simCanvas"></canvas>
+    </div>
+
+    <!-- Bento cards basse -->
+    <div class="grid grid-cols-12 gap-4 h-36 flex-shrink-0">
+
+      <!-- Contatori contenitori -->
+      <div class="col-span-6 bg-surface-container/60 backdrop-blur-sm rounded-2xl p-4 border border-outline-variant/10 flex flex-col justify-between">
+        <h3 class="font-headline font-bold text-xs tracking-widest text-on-surface-variant uppercase">Conteggio Contenitori</h3>
+        <div class="grid grid-cols-4 gap-3">
+          <div class="flex flex-col items-center">
+            <div class="text-2xl font-headline font-bold text-[#4fc3e8]" id="cnt-0">0</div>
+            <div class="text-[0.5rem] text-on-surface-variant uppercase mt-0.5">Plastica</div>
+          </div>
+          <div class="flex flex-col items-center">
+            <div class="text-2xl font-headline font-bold text-[#ffd799]" id="cnt-1">0</div>
+            <div class="text-[0.5rem] text-on-surface-variant uppercase mt-0.5">Metallo</div>
+          </div>
+          <div class="flex flex-col items-center">
+            <div class="text-2xl font-headline font-bold text-[#b5ffaa]" id="cnt-2">0</div>
+            <div class="text-[0.5rem] text-on-surface-variant uppercase mt-0.5">Vetro</div>
+          </div>
+          <div class="flex flex-col items-center">
+            <div class="text-2xl font-headline font-bold text-error" id="cnt-3">0</div>
+            <div class="text-[0.5rem] text-error/70 uppercase mt-0.5">Scarto</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Scanner -->
+      <div class="col-span-3 bg-surface-container/60 backdrop-blur-sm rounded-2xl p-4 border border-outline-variant/10 flex flex-col justify-between">
+        <h3 class="font-headline font-bold text-xs tracking-widest text-on-surface-variant uppercase">Scanner</h3>
+        <div>
+          <div class="text-2xl font-headline font-bold text-secondary" id="scan-state">PRONTO</div>
+          <div class="w-full bg-surface-container-highest h-1.5 rounded-full mt-2 overflow-hidden">
+            <div class="h-full bg-secondary transition-all" id="scan-bar" style="width:0%"></div>
+          </div>
+          <div class="text-[0.55rem] text-on-surface-variant uppercase mt-1 font-mono" id="scan-type">—</div>
+        </div>
+      </div>
+
+      <!-- Carrello -->
+      <div class="col-span-3 bg-primary-container text-on-primary-container rounded-2xl p-4 relative overflow-hidden flex flex-col justify-between">
+        <div class="absolute -right-4 -top-4 opacity-10">
+          <span class="material-symbols-outlined text-8xl" style="font-variation-settings:'FILL' 1">conveyor_belt</span>
+        </div>
+        <h3 class="font-headline font-bold text-xs tracking-widest uppercase">Carrello / Pusher</h3>
+        <div>
+          <div class="text-2xl font-headline font-bold" id="cart-state">IDLE</div>
+          <div class="text-xs opacity-70 mt-1 font-mono" id="cart-pos">pos: 0 mm</div>
+          <div class="text-xs opacity-70 font-mono" id="cart-pusher">pusher: 0%</div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+</main>
+
+<!-- ═══ SCRIPT ════════════════════════════════════════════════ -->
+<script>
+// ════════════════════════════════════════════════════════════
+//  WasteSorter GUI — Client WebSocket
+//  Riceve dati da wastesorter_server.py (ws://localhost:8765)
+//  Manda comandi: start / stop / alarm / reset_alarm
+// ════════════════════════════════════════════════════════════
+
+// ── Canvas setup ─────────────────────────────────────────────
+const canvas = document.getElementById('simCanvas');
+const ctx    = canvas.getContext('2d');
+const wrap   = document.getElementById('canvasWrap');
+let W=0, H=0, PR=1, L={};
+
+// ── Coordinate world → canvas ────────────────────────────────
+// Nastro 1: X va da -1000 a 0  →  mappato su larghezza canvas
+// Nastro 2: Y va da 0 a 1000   →  mappato su altezza canvas
+// Contenitori a Y = 250, 500, 750, 1000
+const WORLD = { x_min:-1000, x_max:0, y_min:0, y_max:1000 };
+
+function calcLayout(){
+  const pad = 24;
+  // Nastro 1: orizzontale
+  L.n1 = { x: pad+30, y: Math.round(H*0.26), w: Math.round(W*0.72), h: 36 };
+  L.n1.x2 = L.n1.x + L.n1.w;
+  L.n1.cy = L.n1.y + L.n1.h/2;
+
+  // Posizione scanner = mappa X=-500 → canvas
+  L.scanX = worldToCanvas(-500, 0).cx;
+
+  // Nastro 2: verticale, parte dalla fine del nastro 1
+  L.n2 = { x: L.n1.x2 - 18, y: L.n1.y + L.n1.h, w: 36, h: Math.round(H*0.58) };
+  L.n2.x2 = L.n2.x + L.n2.w;
+  L.n2.cx  = L.n2.x + L.n2.w/2;
+  L.n2.y2  = L.n2.y + L.n2.h;
+
+  // Guida carrello: a DESTRA del nastro 2
+  L.rail = { x: L.n2.x2 + 8, y1: L.n2.y, y2: L.n2.y2 };
+
+  // Contenitori: a SINISTRA del nastro 2
+  // Y world: plastica=250, metallo=500, vetro=750, scarto=1000
+  const cW=64, cH=40;
+  L.cons = [
+    {label:'Plastica', col:'#4fc3e8', worldY:250,  cnt:0},
+    {label:'Metallo',  col:'#ffd799', worldY:500,  cnt:0},
+    {label:'Vetro',    col:'#b5ffaa', worldY:750,  cnt:0},
+    {label:'Scarto',   col:'#ffb4ab', worldY:1000, cnt:0},
+  ];
+  L.cons.forEach(c=>{
+    const {cy} = worldToCanvas(0, c.worldY);
+    c.cy = cy;
+    c.x  = L.n2.x - cW - 18;
+    c.y  = cy - cH/2;
+    c.w  = cW; c.h = cH;
+  });
+}
+
+// Converti coordinate world in pixel canvas
+function worldToCanvas(wx, wy){
+  // wx: -1000..0  → n1.x .. n1.x2
+  // wy:  0..1000  → n2.y .. n2.y2
+  const cx = L.n1 ? L.n1.x + ((wx - WORLD.x_min)/(WORLD.x_max - WORLD.x_min)) * L.n1.w : 0;
+  const cy = L.n2 ? L.n2.y + (wy / WORLD.y_max) * L.n2.h : 0;
+  return {cx, cy};
+}
+
+function resize(){
+  PR = window.devicePixelRatio||1;
+  W  = wrap.clientWidth||800;
+  H  = wrap.clientHeight||400;
+  if(!W||!H) return;
+  canvas.width=W*PR; canvas.height=H*PR;
+  canvas.style.width=W+'px'; canvas.style.height=H+'px';
+  ctx.setTransform(PR,0,0,PR,0,0);
+  calcLayout();
+}
+
+// ── Stato GUI (aggiornato dal WebSocket) ─────────────────────
+const G = {
+  connected: false,
+  stato: 'idle',
+  alarm: false,
+  alarm_msg: '',
+  running: false,
+  obj: { active:false, x:-1000, y:0, tipo:null, peso:null, induttanza:null, "capacitività":null },
+  carrello: { y:0, pusher:0 },
+  scan_progress: 0,
+  totalSorted: 0,
+  totalReject: 0,
+  // Contatori locali (incrementati quando stato passa da spinta → ritorno)
+  _prev_stato: 'idle',
+};
+
+// ── WebSocket ─────────────────────────────────────────────────
+let ws = null;
+let wsReconnectTimer = null;
+
+function wsConnect(){
+  if(ws && ws.readyState < 2) return;
+  ws = new WebSocket('ws://localhost:8765');
+
+  ws.onopen = () => {
+    G.connected = true;
+    setWsStatus(true);
+    console.log('WebSocket connesso');
+    if(wsReconnectTimer){ clearTimeout(wsReconnectTimer); wsReconnectTimer=null; }
+  };
+
+  ws.onmessage = (e) => {
+    try {
+      const d = JSON.parse(e.data);
+      // Rileva completamento smistamento (pusher → ritorno)
+      if(G._prev_stato === 'spinta' && d.stato === 'ritorno'){
+        if(d.obj && !d.obj.active && G.obj.tipo){
+          const tipoMap = {plastica:0, metallo:1, vetro:2, scarto:3};
+          const idx = tipoMap[G.obj.tipo];
+          if(idx !== undefined) L.cons[idx].cnt++;
+          if(G.obj.tipo === 'scarto') G.totalReject++; else G.totalSorted++;
+        }
+      }
+      G._prev_stato = d.stato;
+      // Aggiorna stato
+      Object.assign(G, d);
+    } catch(err){
+      console.error('JSON parse error:', err);
+    }
+  };
+
+  ws.onclose = () => {
+    G.connected = false;
+    setWsStatus(false);
+    console.log('WebSocket disconnesso, riconnessione in 2s...');
+    wsReconnectTimer = setTimeout(wsConnect, 2000);
+  };
+
+  ws.onerror = (e) => {
+    console.error('WebSocket error:', e);
+    ws.close();
+  };
+}
+
+function sendCmd(cmd, extra={}){
+  if(!ws || ws.readyState !== 1){
+    console.warn('WebSocket non connesso');
+    return;
+  }
+  ws.send(JSON.stringify({cmd, ...extra}));
+}
+
+function setWsStatus(connected){
+  const dot   = document.getElementById('ws-dot');
+  const label = document.getElementById('ws-label');
+  if(connected){
+    dot.className   = 'w-1.5 h-1.5 rounded-full bg-tertiary inline-block';
+    label.textContent = 'CONNESSO';
+  } else {
+    dot.className   = 'w-1.5 h-1.5 rounded-full bg-slate-600 ws-pulse inline-block';
+    label.textContent = 'DISCONNESSO';
+  }
+}
+
+// ── Disegno ───────────────────────────────────────────────────
+function roundRect(x,y,w,h,r){ ctx.beginPath(); ctx.roundRect(x,y,w,h,r); }
+
+function draw(){
+  if(!W||!H){ calcLayout(); return; }
+  ctx.clearRect(0,0,W,H);
+  // Sfondo
+  const bg = ctx.createRadialGradient(W/2,H/2,0,W/2,H/2,W*.7);
+  bg.addColorStop(0,'#0f1520'); bg.addColorStop(1,'#0a0e14');
+  ctx.fillStyle=bg; ctx.fillRect(0,0,W,H);
+
+  drawNastro1();
+  drawNastro2();
+  drawRail();
+  drawContainers();
+  drawCarrello();
+  drawOggetto();
+  drawScanner();
+  drawLabels();
+}
+
+function drawNastro1(){
+  const {n1} = L;
+  ctx.fillStyle='rgba(0,200,240,0.03)'; ctx.fillRect(n1.x-3,n1.y-3,n1.w+6,n1.h+6);
+  ctx.fillStyle='#13202e'; ctx.strokeStyle='#1e3a50'; ctx.lineWidth=1.5;
+  roundRect(n1.x,n1.y,n1.w,n1.h,4); ctx.fill(); ctx.stroke();
+  ctx.fillStyle='#0f1c28'; ctx.fillRect(n1.x+2,n1.y+2,n1.w-4,n1.h-4);
+  ctx.strokeStyle='#1c3448'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(n1.x+3,n1.y+9); ctx.lineTo(n1.x+n1.w-3,n1.y+9); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(n1.x+3,n1.y+n1.h-9); ctx.lineTo(n1.x+n1.w-3,n1.y+n1.h-9); ctx.stroke();
+  // frecce
+  ctx.fillStyle='rgba(195,245,255,0.06)'; ctx.font='11px Space Grotesk'; ctx.textAlign='left';
+  ctx.fillText('→  →  →  →  →  →  →  →  →  →  →  →  →  →  →  →  →  →',n1.x+10,n1.cy+4);
+  // badge IN
+  ctx.fillStyle='#091824'; ctx.strokeStyle='#9cf0ff'; ctx.lineWidth=1.5;
+  roundRect(n1.x-30,n1.y+2,26,n1.h-4,3); ctx.fill(); ctx.stroke();
+  ctx.fillStyle='#9cf0ff'; ctx.font='bold 9px Space Grotesk'; ctx.textAlign='center';
+  ctx.fillText('IN',n1.x-17,n1.cy+4);
+  // Tacche km nastro 1 (ogni 100 unità world)
+  ctx.strokeStyle='#1c3040'; ctx.lineWidth=1;
+  for(let wx=-900; wx<=0; wx+=100){
+    const {cx} = worldToCanvas(wx,0);
+    ctx.beginPath(); ctx.moveTo(cx,n1.y+n1.h); ctx.lineTo(cx,n1.y+n1.h+5); ctx.stroke();
+    ctx.fillStyle='#1e3a50'; ctx.font='6px monospace'; ctx.textAlign='center';
+    ctx.fillText(wx,cx,n1.y+n1.h+12);
+  }
+}
+
+function drawNastro2(){
+  const {n2} = L;
+  ctx.fillStyle='rgba(0,200,240,0.03)'; ctx.fillRect(n2.x-3,n2.y-3,n2.w+6,n2.h+6);
+  ctx.fillStyle='#13202e'; ctx.strokeStyle='#1e3a50'; ctx.lineWidth=1.5;
+  roundRect(n2.x,n2.y,n2.w,n2.h,4); ctx.fill(); ctx.stroke();
+  ctx.fillStyle='#0f1c28'; ctx.fillRect(n2.x+2,n2.y+2,n2.w-4,n2.h-4);
+  ctx.strokeStyle='#1c3448'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(n2.x+9,n2.y+3); ctx.lineTo(n2.x+9,n2.y+n2.h-3); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(n2.x+n2.w-9,n2.y+3); ctx.lineTo(n2.x+n2.w-9,n2.y+n2.h-3); ctx.stroke();
+  ctx.fillStyle='rgba(195,245,255,0.06)';
+  ctx.save(); ctx.translate(n2.cx,n2.y+n2.h/2); ctx.rotate(Math.PI/2);
+  ctx.textAlign='center'; ctx.font='11px Space Grotesk';
+  ctx.fillText('→  →  →  →  →  →  →  →  →  →  →  →',0,0); ctx.restore();
+}
+
+function drawRail(){
+  const {rail} = L;
+  ctx.strokeStyle='#1e3550'; ctx.lineWidth=4;
+  ctx.beginPath(); ctx.moveTo(rail.x+5,rail.y1); ctx.lineTo(rail.x+5,rail.y2); ctx.stroke();
+  ctx.strokeStyle='#0f2030'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(rail.x+2,rail.y1); ctx.lineTo(rail.x+2,rail.y2); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(rail.x+8,rail.y1); ctx.lineTo(rail.x+8,rail.y2); ctx.stroke();
+  ctx.strokeStyle='#162535'; ctx.lineWidth=2;
+  for(let ty=rail.y1+12;ty<rail.y2;ty+=16){
+    ctx.beginPath(); ctx.moveTo(rail.x,ty); ctx.lineTo(rail.x+11,ty); ctx.stroke();
+  }
+}
+
+function drawContainers(){
+  for(const c of L.cons){
+    ctx.strokeStyle=c.col+'22'; ctx.lineWidth=1; ctx.setLineDash([4,6]);
+    ctx.beginPath(); ctx.moveTo(L.n2.x,c.cy); ctx.lineTo(c.x+c.w,c.cy); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.shadowColor=c.col+'30'; ctx.shadowBlur=6;
+    ctx.fillStyle='#0d1c2c'; ctx.strokeStyle=c.col+'55'; ctx.lineWidth=1.5;
+    roundRect(c.x,c.y,c.w,c.h,6); ctx.fill(); ctx.stroke();
+    ctx.shadowBlur=0;
+    ctx.fillStyle=c.col+'18'; ctx.fillRect(c.x+2,c.y+2,c.w-4,c.h-4);
+    ctx.fillStyle=c.col; ctx.font='bold 10px Space Grotesk'; ctx.textAlign='center';
+    ctx.fillText(c.label,c.x+c.w/2,c.y+14);
+    ctx.font='bold 16px Space Grotesk'; ctx.fillStyle='#dfe2eb';
+    ctx.fillText(c.cnt,c.x+c.w/2,c.y+c.h-7);
+  }
+}
+
+function drawCarrello(){
+  const {rail,n2} = L;
+  // Converti posizione Y world → canvas
+  const carCanvasY = n2.y + (G.carrello.y / WORLD.y_max) * n2.h;
+  const carX=rail.x-1, cH=24, cW=18;
+  const isMoving = (G.stato==='attesa'||G.stato==='rientro');
+
+  ctx.shadowColor=isMoving?'rgba(195,245,255,0.25)':'rgba(195,245,255,0.08)';
+  ctx.shadowBlur=isMoving?10:3;
+  ctx.fillStyle=isMoving?'#1a3a58':'#141e30';
+  ctx.strokeStyle='#9cf0ff'; ctx.lineWidth=2;
+  roundRect(carX,carCanvasY-cH/2,cW,cH,4); ctx.fill(); ctx.stroke();
+  ctx.shadowBlur=0;
+  ctx.fillStyle='rgba(195,245,255,0.12)'; ctx.fillRect(carX+3,carCanvasY-6,cW-6,12);
+  ctx.fillStyle='#9cf0ff'; ctx.font='bold 12px monospace'; ctx.textAlign='center';
+  ctx.fillText('◀',carX+cW/2,carCanvasY+5);
+
+  // Pusher: G.carrello.pusher va da 0 a 1 → estensione in px
+  const pushPx = G.carrello.pusher * 60;
+  if(pushPx > 0.5){
+    const sx=carX, ex=sx-pushPx;
+    ctx.fillStyle='#0c1a28'; ctx.strokeStyle='rgba(156,240,255,0.45)'; ctx.lineWidth=1;
+    roundRect(ex,carCanvasY-6,pushPx,12,2); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle='rgba(156,240,255,0.10)'; ctx.lineWidth=1;
+    for(let lx=ex+6;lx<sx-3;lx+=8){
+      ctx.beginPath(); ctx.moveTo(lx,carCanvasY-3); ctx.lineTo(lx,carCanvasY+3); ctx.stroke();
+    }
+    ctx.shadowColor='rgba(156,240,255,0.35)'; ctx.shadowBlur=6;
+    ctx.fillStyle='#9cf0ff';
+    roundRect(ex-12,carCanvasY-10,12,20,3); ctx.fill();
+    ctx.shadowBlur=0;
+    ctx.fillStyle='rgba(0,50,70,0.4)'; ctx.fillRect(ex-10,carCanvasY-7,8,14);
+  } else {
+    ctx.fillStyle='#0c1a28'; ctx.strokeStyle='rgba(156,240,255,0.18)'; ctx.lineWidth=1;
+    roundRect(carX-9,carCanvasY-5,9,10,2); ctx.fill(); ctx.stroke();
+  }
+  ctx.fillStyle='#2a4a60'; ctx.font='7px monospace'; ctx.textAlign='left';
+  ctx.fillText(Math.round(G.carrello.y)+'mm',carX+cW+3,carCanvasY+3);
+}
+
+const TIPO_COL   = {plastica:'#4fc3e8', metallo:'#ffd799', vetro:'#b5ffaa', scarto:'#ffb4ab'};
+const TIPO_LETTERA = {plastica:'P', metallo:'M', vetro:'V', scarto:'S'};
+
+function drawOggetto(){
+  if(!G.obj || !G.obj.active) return;
+  const {n1,n2} = L;
+  const tipo = G.obj.tipo||'scarto';
+  const col  = TIPO_COL[tipo]||'#aaa';
+  const lettera = TIPO_LETTERA[tipo]||'?';
+  const r = 11;
+
+  let cx, cy;
+  if(G.stato === 'nastro1' || G.stato === 'scansione' || G.stato === 'nastro1b'){
+    // Oggetto sul nastro 1: usa coordinata X world
+    const p = worldToCanvas(G.obj.x, 0);
+    cx = p.cx; cy = n1.cy;
+  } else {
+    // Oggetto sul nastro 2: usa coordinata Y world
+    const p = worldToCanvas(0, G.obj.y);
+    cx = n2.cx; cy = p.cy;
+  }
+
+  const scanning = (G.stato === 'scansione');
+
+  // Alone scanner
+  if(scanning){
+    ctx.strokeStyle=col+'55'; ctx.lineWidth=1.5; ctx.setLineDash([3,5]);
+    ctx.beginPath(); ctx.arc(cx,cy,r+8,0,Math.PI*2); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  // Glow
+  ctx.shadowColor=col+'88'; ctx.shadowBlur=scanning?18:8;
+  ctx.fillStyle=col;
+  ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.fill();
+  ctx.shadowBlur=0;
+  // Highlight
+  ctx.fillStyle='rgba(255,255,255,0.22)';
+  ctx.beginPath(); ctx.arc(cx-3,cy-3,r*0.38,0,Math.PI*2); ctx.fill();
+  // Lettera
+  ctx.fillStyle='rgba(0,0,0,0.7)'; ctx.font='bold 9px Space Grotesk'; ctx.textAlign='center';
+  ctx.fillText(lettera,cx,cy+3);
+}
+
+function drawScanner(){
+  const {n1} = L;
+  const isOn = G.stato === 'scansione';
+  const prog = G.scan_progress||0;
+
+  ctx.strokeStyle=isOn?'#ffd799':'#1c3850'; ctx.lineWidth=isOn?2:1; ctx.setLineDash([5,5]);
+  ctx.beginPath(); ctx.moveTo(L.scanX,n1.y-14); ctx.lineTo(L.scanX,n1.y+n1.h+14); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle=isOn?'#ffd799':'#2a4a5a'; ctx.font='bold 8px Space Grotesk'; ctx.textAlign='center';
+  ctx.fillText(isOn?'ANALISI...':'◈ SCANNER',L.scanX,n1.y-17);
+  if(isOn){
+    ctx.fillStyle='#151e2c'; ctx.fillRect(L.scanX-26,n1.y-30,52,6);
+    ctx.fillStyle='#ffd799'; ctx.fillRect(L.scanX-26,n1.y-30,52*prog,6);
+    ctx.strokeStyle='#2a3a20'; ctx.lineWidth=1; ctx.strokeRect(L.scanX-26,n1.y-30,52,6);
+  }
+  ctx.fillStyle=isOn?'rgba(255,215,153,0.28)':'rgba(20,50,70,0.8)';
+  ctx.beginPath(); ctx.moveTo(L.scanX-6,n1.y-14); ctx.lineTo(L.scanX+6,n1.y-14); ctx.lineTo(L.scanX,n1.y+2); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(L.scanX-6,n1.y+n1.h+14); ctx.lineTo(L.scanX+6,n1.y+n1.h+14); ctx.lineTo(L.scanX,n1.y+n1.h-2); ctx.closePath(); ctx.fill();
+}
+
+function drawLabels(){
+  ctx.font='9px Space Grotesk'; ctx.fillStyle='#2a4a5a';
+  ctx.textAlign='left'; ctx.fillText('NASTRO 1',L.n1.x,L.n1.y-4);
+  ctx.textAlign='right'; ctx.fillText('CONTENITORI',L.cons[0].x-4,L.n2.y-4);
+  ctx.save(); ctx.translate(L.n2.x2+20,L.n2.y+55); ctx.rotate(Math.PI/2);
+  ctx.textAlign='left'; ctx.fillText('NASTRO 2',0,0); ctx.restore();
+  ctx.save(); ctx.translate(L.rail.x+22,L.rail.y1+50); ctx.rotate(Math.PI/2);
+  ctx.fillText('GUIDA CARRELLO',0,0); ctx.restore();
+}
+
+// ── UI update ─────────────────────────────────────────────────
+const STATO_IT = {
+  idle:'FERMO', nastro1:'NASTRO 1', scansione:'SCANSIONE',
+  nastro1b:'NASTRO 1', nastro2:'NASTRO 2', attesa:'IN ATTESA',
+  spinta:'SPINTA', ritorno:'RITIRO', rientro:'RIENTRO CARRELLO'
+};
+const STATO_BAR = {
+  idle:0, nastro1:20, scansione:35, nastro1b:50,
+  nastro2:65, attesa:70, spinta:85, ritorno:92, rientro:97
+};
+
+function updateUI(){
+  // Stato ciclo
+  document.getElementById('stat-state').textContent = STATO_IT[G.stato]||G.stato.toUpperCase();
+  document.getElementById('stat-bar').style.width   = (STATO_BAR[G.stato]||0)+'%';
+  // Totali
+  const tot = G.totalSorted + G.totalReject;
+  document.getElementById('stat-total').textContent = tot;
+  document.getElementById('stat-eff').textContent   = tot>0 ? Math.round(G.totalSorted/tot*100)+'% efficienza' : '—';
+  // Contatori contenitori
+  L.cons && L.cons.forEach((c,i)=>{ document.getElementById('cnt-'+i).textContent=c.cnt; });
+  // Scanner
+  if(G.stato==='scansione'){
+    document.getElementById('scan-state').textContent = 'ANALISI';
+    document.getElementById('scan-bar').style.width   = Math.round((G.scan_progress||0)*100)+'%';
+    document.getElementById('scan-type').textContent  = G.obj?.tipo||'—';
+  } else {
+    document.getElementById('scan-state').textContent = 'PRONTO';
+    document.getElementById('scan-bar').style.width   = '0%';
+    document.getElementById('scan-type').textContent  = '—';
+  }
+  // Carrello
+  const carStato = {idle:'IDLE',attesa:'IN MOVIMENTO',spinta:'SPINTA',ritorno:'RITIRO',rientro:'RIENTRO'};
+  document.getElementById('cart-state').textContent  = carStato[G.stato]||'IDLE';
+  document.getElementById('cart-pos').textContent    = 'pos: '+Math.round(G.carrello.y)+' mm';
+  document.getElementById('cart-pusher').textContent = 'pusher: '+Math.round(G.carrello.pusher*100)+'%';
+  // Proprietà oggetto
+  if(G.obj && G.obj.active && G.obj.tipo){
+    document.getElementById('prop-tipo').textContent = G.obj.tipo.toUpperCase();
+    document.getElementById('prop-peso').textContent = G.obj.peso ? G.obj.peso+' kg' : '—';
+    document.getElementById('prop-ind').textContent  = G.obj.induttanza ? G.obj.induttanza+' mH' : '—';
+    document.getElementById('prop-cap').textContent  = G.obj['capacitività'] ? G.obj['capacitività']+' pF' : '—';
+  } else {
+    document.getElementById('prop-tipo').textContent = '—';
+    document.getElementById('prop-peso').textContent = '—';
+    document.getElementById('prop-ind').textContent  = '—';
+    document.getElementById('prop-cap').textContent  = '—';
+  }
+  // Allarme
+  if(G.alarm){
+    document.getElementById('alarm-chip').classList.add('!border-error/60','!bg-error-container/40');
+    document.getElementById('alarm-dot').classList.add('!bg-error','alarm-pulse');
+    document.getElementById('alarm-label').textContent = G.alarm_msg||'ALLARME';
+    document.getElementById('alarm-label').classList.add('text-error');
+    document.getElementById('btn-reset-alarm').classList.remove('hidden');
+    document.getElementById('sidebar-alarm-badge').classList.remove('hidden');
+  } else {
+    document.getElementById('alarm-chip').classList.remove('!border-error/60','!bg-error-container/40');
+    document.getElementById('alarm-dot').classList.remove('!bg-error','alarm-pulse');
+    document.getElementById('alarm-label').textContent = 'NESSUN ALLARME';
+    document.getElementById('alarm-label').classList.remove('text-error');
+    document.getElementById('btn-reset-alarm').classList.add('hidden');
+    document.getElementById('sidebar-alarm-badge').classList.add('hidden');
+  }
+}
+
+// ── Loop ──────────────────────────────────────────────────────
+function loop(){ draw(); updateUI(); requestAnimationFrame(loop); }
+
+new ResizeObserver(()=>{ resize(); }).observe(wrap);
+resize();
+wsConnect();
+loop();
+</script>
+</body>
+</html>
