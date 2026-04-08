@@ -4,6 +4,10 @@
 
 ---
 
+https://github.com/user-attachments/assets/5289765f-fcd6-4f10-8f9d-9a3cef2a69e2
+
+
+
 ## Indice
 
 1. [Panoramica del sistema](#1-panoramica-del-sistema)
