@@ -1,3 +1,6 @@
 # automation_industrial_sorter
 
-WORK IN PROGRESS<img width="1600" height="1280" alt="screen" src="https://github.com/user-attachments/assets/0de7b43d-c0b6-48a9-ae91-2f8d499d3fe3" />
+WORK IN PROGRESS
+
+https://github.com/user-attachments/assets/69f0c249-9ac1-4fb9-ba51-880e1b51a893
+
