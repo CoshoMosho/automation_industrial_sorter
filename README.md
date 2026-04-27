@@ -76,8 +76,12 @@ Il progetto è composto da tre livelli:
 |------|-------------|
 | `wastesorter_gui.html` | Interfaccia HMI web — client WebSocket, visualizzazione animata dell'impianto |
 | `wastesorter_server.py` | Server WebSocket + simulazione completa del processo, senza PLC |
-| `plc_snap7_bridge.py` | Bridge Python tra PLC Siemens reale (snap7) e GUI —(vedi sezione 9) |
-| `plc_industrial_sorter.zap17` | Export del progetto PLC da TIA Portal v17 — vedi sezione 9) |
+| `main.py` | Punto di ingresso per la modalità PLC reale — avvia tutto in un unico processo |
+| `plc_config.py` | Configurazione centralizzata: IP PLC, offset variabili DB, timing |
+| `plc_io.py` | Layer snap7 thread-safe — lettura e scrittura variabili PLC |
+| `sensor_writer.py` | Thread che scrive periodicamente peso/induttanza/capacitività nel DB del PLC |
+| `hmi_bridge.py` | WebSocket server — legge posizioni dal PLC e le manda alla GUI, riceve comandi dalla GUI e li scrive sul PLC |
+| `plc_industrial_sorter.zap17` | Export del progetto PLC da TIA Portal v17 — vedi sezione 9 |
 
 ---
 
@@ -161,11 +165,17 @@ I parametri del processo (velocità nastro, velocità carrello, durata scansione
 
 ## 7. Python — Bridge PLC reale (snap7)
 
-### File: `plc_snap7_bridge.py`
+### File: `main.py` + `plc_config.py` + `plc_io.py` + `sensor_writer.py` + `hmi_bridge.py`
 
-Pensato per sostituire `wastesorter_server.py` quando il PLC fisico è disponibile. Legge le variabili di processo dal Data Block del PLC tramite la libreria `python-snap7`, le converte nel formato JSON atteso dalla GUI e le trasmette via WebSocket. Riceve i comandi dalla GUI (start, stop, allarme, reset) e li scrive sul PLC.
+Quando il PLC fisico è disponibile, il vecchio file unico `plc_snap7_bridge.py` è stato sostituito da un'architettura modulare a processo unico:
 
-Quando il PLC tornerà disponibile, sarà sufficiente configurare l'IP nella variabile `PLC_IP` in cima al file e avviarlo al posto di `wastesorter_server.py`. La GUI non richiede alcuna modifica.
+- **`plc_config.py`** — unico file da modificare: IP del PLC, offset delle variabili nel Data Block, timing. Tutto il resto del codice non va toccato.
+- **`plc_io.py`** — connessione snap7 thread-safe condivisa tra i moduli. Espone `read_var()` e `write_var()` che usano un lock per evitare accessi concorrenti.
+- **`sensor_writer.py`** — thread che gira in background e scrive periodicamente nel DB del PLC i valori simulati di peso, segnale induttivo e segnale capacitivo. In un impianto reale leggerebbe i sensori fisici.
+- **`hmi_bridge.py`** — WebSocket server asyncio che ogni 50ms legge le posizioni dal PLC e le manda alla GUI. Riceve i comandi dalla GUI (start, stop, allarme, reset allarme) e li traduce in impulsi sulle variabili del PLC (`Sistema_START`, `Sistema_STOP`, `Sistema_ANNULLA_ALLARMI`). Legge `Allarme_generale` dal PLC per rispecchiarlo nella GUI.
+- **`main.py`** — avvia la connessione snap7, il `SensorWriter` (thread) e l'`HmiBridge` (asyncio) in un unico processo.
+
+Quando il PLC tornerà disponibile, sarà sufficiente configurare gli offset corretti in `plc_config.py` e avviare `main.py` al posto di `wastesorter_server.py`. La GUI non richiede alcuna modifica.
 
 **Installazione (per uso futuro):**
 ```bash
@@ -198,16 +208,16 @@ Il sistema funziona comunque nella sua interezza in **modalità simulazione** tr
 |------------|---------------|
 | `wastesorter_gui.html` | ✅ Funzionante |
 | `wastesorter_server.py` | ✅ Funzionante |
+| `main.py` + moduli | ✅ Codice pronto — non testabile senza PLC attivo |
 | `plc_industrial_sorter.zap17` | ⏸ Presente — non apribile senza licenza TIA Portal |
-| `plc_snap7_bridge.py` | ⏸ Presente — non testabile senza PLC attivo |
 
 ### Come ripristinare l'integrazione completa
 
 1. Rinnovare la licenza TIA Portal v17, oppure attivare una licenza Trial dal portale Siemens Industry Online Support
 2. Aprire `plc_industrial_sorter.zap17` in TIA Portal
 3. Compilare e caricare su PLCSIM Advanced o su CPU S7 fisica
-4. Impostare l'IP del PLC in `plc_snap7_bridge.py`
-5. Avviare `plc_snap7_bridge.py` al posto di `wastesorter_server.py`
+4. Configurare IP e offset variabili in `plc_config.py`
+5. Avviare `python main.py` al posto di `wastesorter_server.py`
 6. Aprire `wastesorter_gui.html` nel browser — nessuna altra modifica necessaria
 
 ---
@@ -254,11 +264,12 @@ Da seguire quando la licenza TIA Portal è disponibile e il PLC è raggiungibile
 # Installare dipendenze
 pip install websockets python-snap7
 
-# Impostare IP del PLC in plc_snap7_bridge.py:
+# Configurare IP e offset variabili in plc_config.py:
 #   PLC_IP = "192.168.0.1"
+#   (verificare tutti gli offset nella VAR_MAP)
 
-# Avviare il bridge
-python plc_snap7_bridge.py
+# Avviare il sistema
+python main.py
 
 # Aprire wastesorter_gui.html nel browser
 ```
@@ -297,7 +308,13 @@ python plc_snap7_bridge.py
   "scan_progress": 0.0,
   "running": true,
   "alarm": false,
-  "alarm_msg": ""
+  "alarm_msg": "",
+  "counts": {
+    "plastica": 12,
+    "metallo": 7,
+    "vetro": 4,
+    "scarto": 1
+  }
 }
 ```
 
@@ -403,7 +420,11 @@ The project consists of three layers:
 |------|-------------|
 | `wastesorter_gui.html` | Web HMI interface — WebSocket client, animated plant visualisation |
 | `wastesorter_server.py` | WebSocket server + full process simulation, no PLC required |
-| `plc_snap7_bridge.py` | Python bridge between real Siemens PLC (snap7) and GUI — currently unavailable (see section 9) |
+| `main.py` | Entry point for real-PLC mode — starts everything in a single process |
+| `plc_config.py` | Centralised configuration: PLC IP, DB variable offsets, timing |
+| `plc_io.py` | Thread-safe snap7 layer — PLC variable read/write |
+| `sensor_writer.py` | Thread that periodically writes weight/inductance/capacitance to the PLC DB |
+| `hmi_bridge.py` | WebSocket server — reads positions from PLC and sends to GUI, receives commands from GUI and writes to PLC |
 | `plc_industrial_sorter.zap17` | PLC project export from TIA Portal v17 — currently unopenable (see section 9) |
 
 ---
@@ -488,13 +509,17 @@ Process parameters (belt speed, cart speed, scan duration, etc.) are grouped in 
 
 ## 7. Python — Real PLC Bridge (snap7)
 
-### File: `plc_snap7_bridge.py`
+### Files: `main.py` + `plc_config.py` + `plc_io.py` + `sensor_writer.py` + `hmi_bridge.py`
 
-Intended to replace `wastesorter_server.py` when the physical PLC is available. Reads process variables from the PLC Data Block via the `python-snap7` library, converts them to the JSON format expected by the GUI and sends them over WebSocket. Receives commands from the GUI (start, stop, alarm, reset) and writes them to the PLC.
+When the physical PLC is available, the original single-file `plc_snap7_bridge.py` has been replaced by a modular single-process architecture:
 
-**Currently unavailable** — see section 9.
+- **`plc_config.py`** — the only file that needs editing: PLC IP, DB variable offsets, timing. Nothing else needs to be touched.
+- **`plc_io.py`** — thread-safe snap7 connection shared between modules, exposing `read_var()` and `write_var()` protected by a lock.
+- **`sensor_writer.py`** — background thread that periodically writes simulated weight, inductive and capacitive sensor values to the PLC DB. In a real plant it would read from physical sensors.
+- **`hmi_bridge.py`** — asyncio WebSocket server that reads PLC positions every 50 ms and pushes them to the GUI. Receives GUI commands (start, stop, alarm, reset) and translates them into PLC impulses (`Sistema_START`, `Sistema_STOP`, `Sistema_ANNULLA_ALLARMI`). Also reads `Allarme_generale` from the PLC and mirrors it in the GUI.
+- **`main.py`** — starts the snap7 connection, the `SensorWriter` (thread) and the `HmiBridge` (asyncio) in a single process.
 
-When the PLC becomes available again, set the PLC IP address in the `PLC_IP` variable at the top of the file and run it instead of `wastesorter_server.py`. No changes to the GUI are needed.
+When the PLC becomes available again, update the offsets in `plc_config.py` and run `main.py` instead of `wastesorter_server.py`. No changes to the GUI are needed.
 
 **Installation (for future use):**
 ```bash
@@ -528,16 +553,16 @@ The system works fully in **simulation mode** via `wastesorter_server.py` and `w
 |-----------|----------------|
 | `wastesorter_gui.html` | ✅ Working |
 | `wastesorter_server.py` | ✅ Working |
+| `main.py` + modules | ✅ Code ready — cannot be tested without an active PLC |
 | `plc_industrial_sorter.zap17` | ⏸ Present — cannot be opened without a TIA Portal licence |
-| `plc_snap7_bridge.py` | ⏸ Present — cannot be tested without an active PLC |
 
 ### How to restore full integration
 
 1. Renew the TIA Portal v17 licence, or activate a Trial licence from the Siemens Industry Online Support portal
 2. Open `plc_industrial_sorter.zap17` in TIA Portal
 3. Compile and download to PLCSIM Advanced or a physical S7 CPU
-4. Set the PLC IP address in `plc_snap7_bridge.py`
-5. Run `plc_snap7_bridge.py` instead of `wastesorter_server.py`
+4. Configure IP and variable offsets in `plc_config.py`
+5. Run `python main.py` instead of `wastesorter_server.py`
 6. Open `wastesorter_gui.html` in the browser — no other changes needed
 
 ---
@@ -584,11 +609,12 @@ To be followed when the TIA Portal licence is available and the PLC is reachable
 # Install dependencies
 pip install websockets python-snap7
 
-# Set the PLC IP in plc_snap7_bridge.py:
+# Configure IP and variable offsets in plc_config.py:
 #   PLC_IP = "192.168.0.1"
+#   (verify all offsets in VAR_MAP)
 
-# Start the bridge
-python plc_snap7_bridge.py
+# Start the system
+python main.py
 
 # Open wastesorter_gui.html in the browser
 ```
@@ -627,7 +653,13 @@ python plc_snap7_bridge.py
   "scan_progress": 0.0,
   "running": true,
   "alarm": false,
-  "alarm_msg": ""
+  "alarm_msg": "",
+  "counts": {
+    "plastica": 12,
+    "metallo": 7,
+    "vetro": 4,
+    "scarto": 1
+  }
 }
 ```
 
